@@ -1,0 +1,703 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tool ABPM">
+<meta name="theme-color" content="#FAF9F7">
+<script data-iphone="sentinella">
+(function(){
+var h=document.documentElement, msg="";
+function ha(c){ return (" "+h.className+" ").indexOf(" "+c+" ")>=0; }
+// L'errore puo' arrivare prima che l'avviso esista — uno script in <head> che
+// non si lascia leggere —: il messaggio si tiene da parte e si scrive quando
+// la pagina c'e'.
+function scrivi(){
+  var e=document.getElementById("nmerr");
+  if(e&&msg) e.textContent="Errore del motore: "+msg;
+}
+function ko(m){
+  if(m&&!msg) msg=m;
+  if(!ha("motore-ko")) h.className+=" motore-ko";
+  scrivi();
+}
+h.className+=" js";
+window.onerror=function(m,src,riga,col){
+  m=String(m);
+  if(/^Script error\.?$/.test(m)) m="il browser non ne mostra il dettaglio (\u00abScript error.\u00bb)";
+  ko(m+(riga?" (riga "+riga+(col?", colonna "+col:"")+")":""));
+};
+document.addEventListener("DOMContentLoaded",function(){
+  if(!ha("motore-ok")) ko(msg||"il motore non ha completato l'avvio"); else scrivi();
+});
+})();
+</script>
+<title>ABPM — validità, categorie e profilo notturno</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg:#FAF9F7; --surface:#FFFFFF; --surface-alt:#F3F2EF;
+    --border:rgba(11,11,11,0.10); --border-strong:rgba(11,11,11,0.18);
+    --text-primary:#0B0B0B; --text-secondary:#52514E; --text-muted:#76746F;
+    --accent-blue:#2A78D6;   --accent-blue-bg:#E6F1FB;   --accent-blue-border:#B5D4F4;
+    --accent-amber:#BA7517;  --accent-amber-bg:#FAEEDA;  --accent-amber-border:#FAC775;
+    --accent-red:#A32D2D;    --accent-red-bg:#FCEBEB;    --accent-red-border:#F7C1C1;
+    --accent-green:#3B6D11;  --accent-green-bg:#EAF3DE;  --accent-green-border:#C0DD97;
+    --accent-purple:#534AB7; --accent-purple-bg:#EEEDFE; --accent-purple-border:#CECBF6;
+    --cor-1:#3B8E5A; --cor-2a:#E0A82E; --cor-2b:#DE7E3C; --cor-3:#B33A3A;
+    --k0:#2E7D4F; --k0-bg:#E2F3E8; --k0-bd:#A6D9B8;
+    --k1:#2A78D6; --k1-bg:#E3EFFB; --k1-bd:#A9CBF1;
+    --k2:#8A6A00; --k2-bg:#FBF3C8; --k2-bd:#EBD56C;
+    --k3:#B45309; --k3-bg:#FDEBD8; --k3-bd:#F4BD85;
+    --k4:#A32D2D; --k4-bg:#FCE3E3; --k4-bd:#F0A9A9;
+    --grid:rgba(42,120,214,.08);
+    --font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --display:'IBM Plex Sans Condensed','Arial Narrow',-apple-system,'Segoe UI',sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Consolas,'Courier New',monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#111418; --surface:#181C22; --surface-alt:#20252D;
+      --border:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.19);
+      --text-primary:#E7EAEE; --text-secondary:#B8BEC7; --text-muted:#949BA5;
+      --accent-blue:#72AAEE;   --accent-blue-bg:#18283A;   --accent-blue-border:#2E4B6C;
+      --accent-amber:#E3A94F;  --accent-amber-bg:#30250F;  --accent-amber-border:#5D4719;
+      --accent-red:#EF8E8E;    --accent-red-bg:#361B1B;    --accent-red-border:#6B3232;
+      --accent-green:#95C873;  --accent-green-bg:#1C2A13;  --accent-green-border:#3C5626;
+      --accent-purple:#ADA6F2; --accent-purple-bg:#23213B; --accent-purple-border:#454077;
+      --k0:#8FD3A8; --k0-bg:#132B1D; --k0-bd:#2D5A3E;
+      --k1:#8EC0F5; --k1-bg:#16283C; --k1-bd:#2F5378;
+      --k2:#EDD36A; --k2-bg:#2C260C; --k2-bd:#5E5120;
+      --k3:#F3B27A; --k3-bg:#33210F; --k3-bd:#6B4524;
+      --k4:#F29A9A; --k4-bg:#361B1B; --k4-bd:#6B3232;
+      --grid:rgba(114,170,238,.07);
+      color-scheme:dark;
+    }
+  }
+  body { font-family:var(--font); background:var(--bg); color:var(--text-primary); font-size:14.5px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+  .page { max-width:960px; margin:0 auto; padding:0 16px 4rem; }
+  strong, b { font-weight:600; }
+  .muted { color:var(--text-muted); }
+  .hero { margin:0 -16px 0; padding:2.2rem 16px 1.3rem; border-bottom:1px solid var(--border);
+          background-color:var(--bg);
+          background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+          background-size:22px 22px; }
+  .kicker { font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-blue); margin-bottom:8px; }
+  .headline { font-family:var(--display); font-size:30px; font-weight:700; line-height:1.12; margin-bottom:10px; }
+  .lede { font-size:14.5px; color:var(--text-secondary); max-width:760px; margin-bottom:12px; }
+  .lede strong { color:var(--text-primary); }
+  .meta-row { display:flex; flex-wrap:wrap; gap:6px 8px; font-size:12px; }
+  .meta-chip { background:var(--surface); border:1px solid var(--border-strong); border-radius:99px; padding:2px 10px; color:var(--text-secondary); overflow-wrap:anywhere; }
+  .meta-chip strong { color:var(--text-primary); }
+  .bar { position:-webkit-sticky; position:-webkit-sticky;position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--border-strong);
+         margin:0 -16px 1.2rem; padding:8px 16px; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+  .bar .lbl { font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); }
+  .bar .sp { flex:1 1 auto; }
+  .btn { font:600 12.5px var(--font); padding:6px 13px; border-radius:99px; border:1px solid var(--border-strong); background:var(--surface); color:var(--text-secondary); cursor:pointer; }
+  .btn:hover { border-color:var(--accent-blue); color:var(--accent-blue); }
+  .stage { display:flex; align-items:baseline; gap:10px; margin:2rem 0 .7rem; padding-bottom:6px; border-bottom:2px solid var(--border-strong); }
+  .stage-n { font-family:var(--mono); font-size:12px; font-weight:600; color:#FFFFFF; background:var(--accent-blue); border-radius:6px; padding:1px 7px; }
+  .stage-t { font-family:var(--display); font-size:20px; font-weight:700; line-height:1.2; }
+  .stage-w { margin-left:auto; font-size:11.5px; color:var(--text-muted); text-align:right; }
+  .card { background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .card h3 { font-size:13px; font-weight:600; letter-spacing:.02em; margin-bottom:8px; color:var(--text-secondary); }
+  .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-bottom:10px; }
+  .row:last-child { margin-bottom:0; }
+  .fl { font-size:12.5px; font-weight:600; color:var(--text-secondary); min-width:130px; }
+  .fl small { display:block; font-weight:400; color:var(--text-muted); font-size:11.5px; }
+  input[type=number] { font:500 15px var(--font); color:var(--text-primary); background:var(--surface); border:1px solid var(--border-strong); border-radius:8px; padding:6px 9px; width:108px; text-align:center; }
+  .seg { display:inline-flex; flex-wrap:wrap; border:1px solid var(--border-strong); border-radius:10px; overflow:hidden; }
+  .seg label { position:relative; cursor:pointer; }
+  .seg input { position:absolute; opacity:0; width:1px; height:1px; }
+  .seg span { display:block; padding:6px 13px; font-size:13.5px; font-weight:500; color:var(--text-secondary); border-right:1px solid var(--border); }
+  .seg label:last-child span { border-right:none; }
+  .seg input:checked + span { background:var(--text-primary); color:var(--bg); }
+  .seg input:focus-visible + span { outline:2px solid var(--accent-blue); outline-offset:-2px; }
+  .chk { display:flex; align-items:flex-start; gap:9px; padding:6px 0; font-size:14px; line-height:1.45; border-bottom:1px dashed var(--border); cursor:pointer; }
+  .chk:last-child { border-bottom:none; }
+  .chk input { margin-top:3px; width:17px; height:17px; flex:0 0 auto; accent-color:var(--accent-blue); }
+  .chk small { display:block; color:var(--text-muted); font-size:12px; }
+  .due { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hide { display:none !important; }
+  .esito { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
+  .big { font-family:var(--display); font-size:32px; font-weight:700; line-height:1.1; }
+  .cat { display:inline-block; font-size:12.5px; font-weight:600; border-radius:99px; padding:2px 10px; border:1px solid; }
+  .k0 { color:var(--k0); background:var(--k0-bg); border-color:var(--k0-bd); }
+  .k1 { color:var(--k1); background:var(--k1-bg); border-color:var(--k1-bd); }
+  .k2 { color:var(--k2); background:var(--k2-bg); border-color:var(--k2-bd); }
+  .k3 { color:var(--k3); background:var(--k3-bg); border-color:var(--k3-bd); }
+  .k4 { color:var(--k4); background:var(--k4-bg); border-color:var(--k4-bd); }
+  .kx { color:var(--text-muted); background:var(--surface-alt); border-color:var(--border-strong); }
+  .cor { display:inline-block; font-family:var(--mono); font-size:11px; font-weight:600; color:#FFFFFF; border-radius:4px; padding:0 5px; margin:0 1px; white-space:nowrap; vertical-align:1px; }
+  .c1 { background:var(--cor-1); } .c2a { background:var(--cor-2a); color:#1D1602; } .c2b { background:var(--cor-2b); } .c3 { background:var(--cor-3); }
+  .prov { display:inline-block; font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; border-radius:4px; padding:1px 6px; background:var(--accent-blue-bg); color:#0C447C; }
+  @media (prefers-color-scheme: dark) { .prov { background:#18283A; color:#9CC6F2; } }
+  .pg { font-family:var(--mono); font-size:11px; color:var(--text-muted); white-space:nowrap; }
+  .nota { border-left:3px solid var(--accent-amber); background:var(--accent-amber-bg); border-radius:0 8px 8px 0; padding:7px 11px; margin-top:8px; font-size:13.5px; }
+  .nota.info { border-left-color:var(--accent-blue); background:var(--accent-blue-bg); }
+  .nota.stop { border-left-color:var(--accent-red); background:var(--accent-red-bg); }
+  .nota.ok { border-left-color:var(--accent-green); background:var(--accent-green-bg); }
+  .nota strong { color:var(--text-primary); }
+  .passo { display:flex; gap:10px; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .passo:last-child { border-bottom:none; }
+  .passo .ico { flex:0 0 22px; font-weight:700; color:var(--accent-blue); text-align:center; }
+  .passo .tx { flex:1 1 auto; font-size:14px; }
+  .limiti li { margin:4px 0 4px 18px; font-size:13.5px; }
+  .foot { margin-top:2.4rem; padding-top:1rem; border-top:1px solid var(--border-strong); font-size:12px; color:var(--text-muted); line-height:1.7; }
+  .foot strong { color:var(--text-secondary); }
+  @media (max-width:640px) {
+    .due { grid-template-columns:1fr; }
+    .headline { font-size:25px; }
+    .stage-w { display:none; }
+    .fl { min-width:0; width:100%; }
+  }
+  @media print { .bar { position:static; } }
+  .big small { font-size:17px; font-weight:600; }
+  /* i riferimenti lunghi (DOI, piu' fonti) vanno a capo invece di allargare la pagina */
+  .passo .tx { min-width:0; overflow-wrap:anywhere; }
+  .tx .pg, .nota .pg { white-space:normal; }
+  .fin { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .fin:last-child { border-bottom:none; }
+  .fin .nome { font-weight:600; min-width:92px; }
+  .fin .val { font-family:var(--mono); font-size:14px; font-weight:600; min-width:74px; }
+  .fin .why { flex:1 1 220px; min-width:0; font-size:13px; color:var(--text-secondary); overflow-wrap:anywhere; }
+  .mini { font-size:12.5px; color:var(--text-muted); margin-top:6px; }
+  input[type=number].corto { width:84px; }
+  .coppia { display:inline-flex; align-items:center; gap:6px; }
+  .coppia .sl { font-family:var(--mono); color:var(--text-muted); }
+  @media (max-width:360px) { input[type=number] { width:92px; } input[type=number].corto { width:74px; } }
+</style>
+<style data-iphone="stile">
+/* L'avviso e' visibile per costruzione: lo nasconde solo la classe che la
+   sentinella mette quando JavaScript esiste, e lo rimostra quando il motore
+   muore. Nell'anteprima dell'iPhone nessuna delle due arriva. */
+#nomotore{background:#FCEBEB;border:1.5px solid #A32D2D;border-radius:10px;
+ padding:12px 15px;margin:0 0 1.1rem;font-size:13.5px;line-height:1.6;color:#0B0B0B;
+ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+#nomotore strong{display:block;color:#A32D2D;font-size:15px;margin-bottom:4px}
+#nomotore p{margin:6px 0 0}
+#nomotore a{color:#A32D2D}
+#nomotore .nmurl{font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:.92em;word-break:break-all}
+#nomotore .nmerr{display:block;font-family:'SFMono-Regular',Consolas,Menlo,monospace;
+ font-size:11.5px;color:#A32D2D;margin-top:6px;word-break:break-word}
+#nomotore .nmerr:empty{display:none}
+html.js #nomotore{display:none}
+html.js.motore-ko #nomotore{display:block}
+
+#nmprivacy{background:#E2F4F5;border:1px solid #A7DBDE;border-radius:8px;padding:9px 13px;
+ margin:0 0 1rem;font-size:12.5px;line-height:1.55;color:#0B0B0B;
+ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+@media print{#nmprivacy{display:none}}
+</style>
+</head>
+<body>
+<div class="nomotore" id="nomotore" role="alert">
+ <strong>Motore di calcolo non attivo</strong>
+ <p>I calcoli, i filtri e i comandi di questa pagina <b>non funzionano</b>: dove leggi «—» non c'è un
+ valore. Il testo resta leggibile, i numeri che dipendono dai tuoi dati no. Non usare questa pagina
+ per decidere una dose.</p>
+ <p>Su iPhone e iPad succede sempre con un file salvato sul telefono: si apre nell'<b>anteprima</b> —
+ dall'app File, da Mail, da WhatsApp —, che mostra la pagina ma non esegue il motore, e Apple non
+ permette di aprirlo in Safari. Sull'iPhone il tool funziona aperto da questo indirizzo, in Safari: <a class="nmurl" href="https://francescofugetto-ai.github.io/tool-abpm-web/">https://francescofugetto-ai.github.io/tool-abpm-web/</a> — poi Condividi, «Aggiungi alla schermata Home». Dopo la prima apertura funziona anche senza rete. Su computer e Android basta aprire il file.</p>
+ <span class="nmerr" id="nmerr"></span>
+</div>
+<div class="nmprivacy" id="nmprivacy">
+ <b>Quello che scrivi resta su questo dispositivo.</b> La pagina non invia niente in rete e non
+ salva niente: nessun dato esce da qui. Per la stessa ragione, <b>chiudendola il contenuto si
+ perde</b> — copia il referto dove ti serve prima di chiudere.
+</div>
+<div class="page">
+<header class="hero">
+  <div class="kicker">Strumento · Ipertensione arteriosa · ABPM</div>
+  <h1 class="headline">Lettura dell'ABPM — validità, categoria, fenotipo e profilo notturno</h1>
+  <p class="lede"><strong>Come si usa.</strong> Il passo 1 dice se la registrazione è <strong>valida</strong>. Il passo 2 mette ciascuna media — 24 h, diurna, notturna — nella sua <strong>categoria</strong> e dice quale media ha deciso la categoria complessiva. Con la PA in ambulatorio, il passo 3 riconosce <strong>camice bianco</strong> e <strong>ipertensione mascherata</strong>; il passo 4 l'<strong>ipertensione notturna</strong> e il <strong>profilo notte/giorno</strong>; il passo 5 che cosa comporta. <strong>Azzera</strong>, in alto, ricomincia.</p>
+  <div class="meta-row">
+    <span class="meta-chip"><strong>Fonte</strong> 2024 ESC Guidelines for the management of elevated blood pressure and hypertension</span>
+    <span class="meta-chip"><strong>Calcolo</strong> § 5.2.4 e Tab. 5 p. 3933 · definizioni p. 3930 · § 9.12 pp. 3979–3980 · Rec. Table 6 p. 3943 · Rec. Table 17 p. 3963</span>
+  </div>
+</header>
+
+<div class="bar" id="bar" aria-live="polite">
+  <span class="lbl">Validità</span> <span id="barVal" class="cat kx">—</span>
+  <span class="lbl">Categoria</span> <span id="barCat" class="cat kx">—</span>
+  <span class="lbl">Fenotipo</span> <span id="barFen" class="cat kx">—</span>
+  <span class="lbl">Notte</span> <span id="barNot" class="cat kx">—</span>
+  <span class="sp"></span>
+  <button class="btn" id="azzera" type="button">Azzera</button>
+</div>
+
+<div class="stage"><span class="stage-n">1</span><span class="stage-t">La registrazione</span><span class="stage-w">§ 5.2.4, p. 3933</span></div>
+<div class="card">
+  <div class="row">
+    <span class="fl">Letture programmate <small>nelle 24 h</small></span>
+    <input type="number" id="prog" min="1" max="200" step="1" inputmode="numeric" placeholder="es. 64">
+    <span class="fl">Letture valide <small>utilizzabili, nelle 24 h</small></span>
+    <input type="number" id="valide" min="0" max="200" step="1" inputmode="numeric" placeholder="es. 52">
+  </div>
+  <div class="row">
+    <span class="fl">oppure la percentuale <small>% di letture valide, se il referto dà solo quella</small></span>
+    <input type="number" id="pct" min="0" max="100" step="1" inputmode="decimal" placeholder="es. 82">
+  </div>
+  <div class="row">
+    <span class="fl">Letture valide di notte <small>nel sonno</small></span>
+    <input type="number" id="nott" min="0" max="100" step="1" inputmode="numeric" placeholder="es. 9">
+    <span class="fl">Letture valide di giorno <small>in veglia, facoltativo</small></span>
+    <input type="number" id="diur" min="0" max="150" step="1" inputmode="numeric" placeholder="es. 43">
+  </div>
+</div>
+<div class="card" id="outVal"></div>
+
+<div class="stage"><span class="stage-n">2</span><span class="stage-t">Le tre medie</span><span class="stage-w">Tab. 5 e Fig. 5, p. 3933</span></div>
+<div class="card">
+  <div class="row">
+    <span class="fl">24 ore <small>sistolica / diastolica, mmHg</small></span>
+    <span class="coppia"><input type="number" class="corto" id="s24" min="50" max="300" step="1" inputmode="numeric" placeholder="PAS"><span class="sl">/</span><input type="number" class="corto" id="d24" min="20" max="200" step="1" inputmode="numeric" placeholder="PAD"></span>
+  </div>
+  <div class="row">
+    <span class="fl">Diurna <small>sistolica / diastolica, mmHg</small></span>
+    <span class="coppia"><input type="number" class="corto" id="sd" min="50" max="300" step="1" inputmode="numeric" placeholder="PAS"><span class="sl">/</span><input type="number" class="corto" id="dd" min="20" max="200" step="1" inputmode="numeric" placeholder="PAD"></span>
+  </div>
+  <div class="row">
+    <span class="fl">Notturna <small>sistolica / diastolica, mmHg</small></span>
+    <span class="coppia"><input type="number" class="corto" id="sn" min="50" max="300" step="1" inputmode="numeric" placeholder="PAS"><span class="sl">/</span><input type="number" class="corto" id="dn" min="20" max="200" step="1" inputmode="numeric" placeholder="PAD"></span>
+  </div>
+</div>
+<div class="card" id="outCat"></div>
+
+<div class="stage"><span class="stage-n">3</span><span class="stage-t">Rispetto all'ambulatorio</span><span class="stage-w">definizioni, p. 3930</span></div>
+<div class="card">
+  <div class="row">
+    <span class="fl">PA in ambulatorio <small>sistolica / diastolica, facoltativa</small></span>
+    <span class="coppia"><input type="number" class="corto" id="so" min="50" max="300" step="1" inputmode="numeric" placeholder="PAS"><span class="sl">/</span><input type="number" class="corto" id="do" min="20" max="200" step="1" inputmode="numeric" placeholder="PAD"></span>
+  </div>
+  <div class="row">
+    <span class="fl">In terapia antipertensiva</span>
+    <span class="seg">
+      <label><input type="radio" name="ter" value="no"><span>no</span></label>
+      <label><input type="radio" name="ter" value="si"><span>sì</span></label>
+    </span>
+  </div>
+</div>
+<div class="card" id="outFen"></div>
+
+<div class="stage"><span class="stage-n">4</span><span class="stage-t">La notte</span><span class="stage-w">§ 9.12, pp. 3979–3980</span></div>
+<div class="card" id="outNot"></div>
+
+<div class="stage"><span class="stage-n">5</span><span class="stage-t">Che cosa comporta</span><span class="stage-w">Rec. Table 6 p. 3943 · Rec. Table 17 p. 3963</span></div>
+<div class="card" id="outCosa"></div>
+<div class="card"><h3>Limiti</h3><ul class="limiti" id="limiti"></ul></div>
+
+<div class="foot">
+  <strong>Fonte.</strong> McEvoy JW, McCarthy CP, Bruno RM, et al. 2024 ESC Guidelines for the management of elevated blood pressure and hypertension. <em>Eur Heart J</em> 2024;45:3912–4018 — definizioni di camice bianco e mascherata (p. 3930), ABPM e soglie per media (§ 5.2.4, Fig. 5 e Tab. 5, p. 3933), raccomandazioni sulla misura (Rec. Table 1, p. 3935), conferma della diagnosi (Rec. Table 6, p. 3943), inizio della terapia (Rec. Table 17, p. 3963), ipertensione notturna e profili di dipping (§ 9.12, pp. 3979–3980). Materiale supplementare: normal dipping riferito alla sistolica media (p. 10), gli stessi profili del § 9.12 (p. 24). Ogni numero mostrato porta la pagina.<br><br>
+  Strumento personale di studio e consultazione: <strong>non sostituisce il giudizio clinico</strong>. Non salva i dati e non li invia in rete.
+</div>
+
+</div>
+<script>
+(function () {
+  "use strict";
+
+  /* ═══ DATI ═══════════════════════════════════════════════════════════════
+     2024 ESC Guidelines for the management of elevated blood pressure and
+     hypertension (Eur Heart J 2024;45:3912-4018).
+     § 5.2.4, p. 3933: registrazione valida con almeno il 70% di letture
+       utilizzabili, di solito >=27 nelle 24 h; preferibilmente 7 notturne;
+       dati emergenti: >=8 di veglia e >=4 di sonno possono bastare se non se
+       ne ottengono di piu'.
+     Tab. 5, p. 3933 (soglie per media; categoria con sistolica O diastolica):
+       24 h      non elevata <115/65 · elevata 115/65-<130/80 · ipertensione >=130/80
+       diurna    non elevata <120/70 · elevata 120/70-<135/85 · ipertensione >=135/85
+       notturna  non elevata <110/60 · elevata 110/60-<120/70 · ipertensione >=120/70
+       ambulatorio: ipertensione >=140/90
+     Fig. 5, p. 3933: ipertensione all'ABPM se >=130/80 nelle 24 h O >=135/85
+       di giorno O >=120/70 di notte.
+     p. 3930: camice bianco >=140/90 in ambulatorio ma <135/85 diurna (o 24 h
+       <130/80); mascherata <140/90 in ambulatorio ma >=135/85 diurna (o 24 h
+       >=130/80).
+     § 9.12.1, p. 3979: ipertensione notturna = notturna >120 sistolica e/o
+       >70 diastolica; isolata se diurna <135/85.
+     p. 3980 (e suppl. p. 24): rapporto notte/giorno riser >1,0 · non-dipper
+       >0,9 e <=1,0 · normale 0,8-0,9 · extreme dipper <0,8. Suppl. p. 10:
+       il normal dipping e' il calo della SISTOLICA media del 10-20%.
+     p. 3980: riproducibilita' del dipping bassa; nessuna prova per dare i
+       farmaci di routine alla sera; mascherata non controllata nel 30% dei
+       trattati, piu' spesso per la PA notturna.
+     p. 3943: PA in ambulatorio >=180/110 -> escludere l'emergenza (I C). */
+  var FINESTRE = [
+    { k:"h24",   nome:"24 ore",   s:"s24", d:"d24", el:[115, 65], ht:[130, 80], pg:"Tab. 5, p. 3933" },
+    { k:"day",   nome:"Diurna",   s:"sd",  d:"dd",  el:[120, 70], ht:[135, 85], pg:"Tab. 5, p. 3933" },
+    { k:"night", nome:"Notturna", s:"sn",  d:"dn",  el:[110, 60], ht:[120, 70], pg:"Tab. 5, p. 3933" }
+  ];
+  var VAL_PCT = 70, VAL_N = 27, NOTT_PREF = 7, EM_VEGLIA = 8, EM_SONNO = 4;   // p. 3933
+  var OFF_HT = [140, 90];                                                   // p. 3930, Tab. 5
+  var NOTT_DEF = [120, 70];                                                 // «>», § 9.12.1 p. 3979
+  var ISOL_DIURNA = [135, 85];                                              // «<», p. 3979
+  var DIP = { riser:1.0, nondip:0.9, norm:0.8 };                            // p. 3980; suppl. p. 24
+  var OFF_EMERG = [180, 110];                                               // p. 3943
+  var DOM = { s:[50, 300], d:[20, 200] };                                   // dominio d'ingresso del tool
+
+  var CATNOME = ["non elevata", "elevata", "ipertensione"];
+  var CATK = ["k0", "k2", "k4"];
+
+  /* ═══ FUNZIONI PURE ═══════════════════════════════════════════════════ */
+  function livello(v, el, ht) { return v < el ? 0 : (v < ht ? 1 : 2); }
+
+  /* Validita' della registrazione (§ 5.2.4, p. 3933). */
+  function validita(s) {
+    var r = { stato:null, pct:null, avvisi:[], errore:null };
+    if (s.prog !== null && s.valide !== null) {
+      if (s.prog <= 0 || s.valide < 0) { r.errore = "le letture non possono essere zero o negative"; return r; }
+      if (s.valide > s.prog) { r.errore = "le letture valide (" + s.valide + ") superano quelle programmate (" + s.prog + ")"; return r; }
+      r.pct = s.valide / s.prog * 100;
+    } else if (s.pct !== null) {
+      if (s.pct < 0 || s.pct > 100) { r.errore = "la percentuale deve stare fra 0 e 100"; return r; }
+      r.pct = s.pct;
+    }
+    if (s.nott !== null && s.valide !== null && s.nott > s.valide) { r.errore = "le letture notturne superano quelle valide"; return r; }
+    if (r.pct === null) return r;
+    r.stato = r.pct >= VAL_PCT ? "valida" : "nonvalida";
+    if (s.valide !== null && s.valide < VAL_N && r.stato === "valida") r.avvisi.push("pochi");
+    if (s.nott !== null) {
+      if (s.nott < EM_SONNO) r.avvisi.push("notte-minima");
+      else if (s.nott < NOTT_PREF) r.avvisi.push("notte-emergenti");
+    }
+    if (s.diur !== null && s.diur < EM_VEGLIA) r.avvisi.push("giorno-minimo");
+    return r;
+  }
+
+  function fuoriDominio(v, tipo) { return v !== null && (v < DOM[tipo][0] || v > DOM[tipo][1]); }
+
+  /* Categoria di una media: sistolica O diastolica (Tab. 5, p. 3933). */
+  function categoriaMedia(f, sis, dia) {
+    if (sis === null && dia === null) return { cat:null, perche:"mancano sistolica e diastolica" };
+    if (fuoriDominio(sis, "s") || fuoriDominio(dia, "d")) return { cat:null, errore:true, perche:"valore fuori dominio (sistolica 50–300, diastolica 20–200 mmHg)" };
+    if (sis !== null && dia !== null && dia >= sis) return { cat:null, errore:true, perche:"la diastolica non può essere uguale o superiore alla sistolica" };
+    var ls = sis === null ? null : livello(sis, f.el[0], f.ht[0]);
+    var ld = dia === null ? null : livello(dia, f.el[1], f.ht[1]);
+    if (ls === null || ld === null) {
+      var noto = ls === null ? ld : ls, quale = ls === null ? "diastolica" : "sistolica";
+      if (noto === 2) return { cat:2, decide:[quale], parziale:true, perche:"basta la " + quale + " (≥" + (quale === "sistolica" ? f.ht[0] : f.ht[1]) + ") a fare ipertensione; manca la " + (quale === "sistolica" ? "diastolica" : "sistolica") };
+      return { cat:null, perche:"serve anche la " + (ls === null ? "sistolica" : "diastolica") + ": con una sola sotto la soglia di ipertensione la categoria non si decide" };
+    }
+    var cat = Math.max(ls, ld), decide = [];
+    if (ls === cat) decide.push("sistolica");
+    if (ld === cat) decide.push("diastolica");
+    return { cat:cat, decide:decide, ls:ls, ld:ld };
+  }
+
+  function soglieTesto(f, cat) {
+    if (cat === 2) return "≥" + f.ht[0] + "/" + f.ht[1];
+    if (cat === 1) return f.el[0] + "/" + f.el[1] + "–&lt;" + f.ht[0] + "/" + f.ht[1];
+    return "&lt;" + f.el[0] + "/" + f.el[1];
+  }
+
+  /* Categoria complessiva: la piu' alta delle tre (Fig. 5 per l'ipertensione). */
+  function complessiva(cats) {
+    var max = -1, chi = [], mancano = [], i;
+    for (i = 0; i < FINESTRE.length; i++) {
+      var c = cats[FINESTRE[i].k];
+      if (c.errore) return { cat:null, perche:FINESTRE[i].nome.toLowerCase() + ": " + c.perche };
+      if (c.cat === null) { mancano.push(FINESTRE[i].nome.toLowerCase()); continue; }
+      if (c.cat > max) { max = c.cat; chi = [FINESTRE[i].nome.toLowerCase()]; }
+      else if (c.cat === max) chi.push(FINESTRE[i].nome.toLowerCase());
+    }
+    if (max === 2) return { cat:2, chi:chi, mancano:mancano };
+    if (mancano.length) return { cat:null, perche:"manca" + (mancano.length > 1 ? "no" : "") + " " + mancano.join(", ") + ": senza un'ipertensione già certa in un'altra media, la categoria complessiva non si decide" };
+    return { cat:max, chi:chi, mancano:[] };
+  }
+
+  /* L'ipertensione all'ABPM poggia solo sulla notturna al valore esatto 120 o 70?
+     Tab. 5 (p. 3933) «>=120/70» contro § 9.12.1 (p. 3979) «>120/>70»: se si',
+     «alt» e' la categoria che resterebbe senza la notturna (null se non si sa). */
+  function bordoNotturno(comp, cats, s) {
+    if (comp.cat !== 2 || comp.chi.length !== 1 || comp.chi[0] !== "notturna") return null;
+    if (s.sn === null || s.dn === null) return null;
+    if (s.sn > NOTT_DEF[0] || s.dn > NOTT_DEF[1]) return null;
+    if (s.sn !== NOTT_DEF[0] && s.dn !== NOTT_DEF[1]) return null;
+    var a = cats.h24.cat, b = cats.day.cat;
+    return { alt:(a === null || b === null) ? null : Math.max(a, b) };
+  }
+
+  /* Fenotipo rispetto all'ambulatorio (p. 3930; p. 3980 per i trattati). */
+  function fenotipo(s, comp, cats) {
+    if (s.so === null && s.dof === null) return { fen:null, perche:"serve la PA in ambulatorio (facoltativa)" };
+    if (fuoriDominio(s.so, "s") || fuoriDominio(s.dof, "d")) return { fen:null, perche:"PA in ambulatorio fuori dominio" };
+    if (s.so === null || s.dof === null) {
+      if ((s.so !== null && s.so >= OFF_HT[0]) || (s.dof !== null && s.dof >= OFF_HT[1])) { /* basta una */ }
+      else return { fen:null, perche:"serve la PA in ambulatorio completa, sistolica e diastolica" };
+    } else if (s.dof >= s.so) return { fen:null, perche:"in ambulatorio la diastolica non può essere uguale o superiore alla sistolica" };
+    if (comp.cat === null) return { fen:null, perche:"serve la categoria complessiva dell'ABPM" };
+    if (s.ter === "") return { fen:null, perche:"serve sapere se il paziente è in terapia" };
+    var offHT = (s.so !== null && s.so >= OFF_HT[0]) || (s.dof !== null && s.dof >= OFF_HT[1]);
+    var abHT = comp.cat === 2;
+    var soloNotte = abHT && comp.chi.length === 1 && comp.chi[0] === "notturna";
+    var t = s.ter === "si";
+    var r = { offHT:offHT, abHT:abHT, soloNotte:soloNotte, trattato:t };
+    if (offHT && abHT) { r.fen = t ? "noncontr" : "confermata"; }
+    else if (offHT && !abHT) { r.fen = "camice"; }
+    else if (!offHT && abHT) { r.fen = t ? "mascheratanc" : "mascherata"; }
+    else { r.fen = t ? "controllata" : "nessuna"; }
+    return r;
+  }
+
+  /* Ipertensione notturna (§ 9.12.1, p. 3979): «>120 e/o >70». */
+  function notturna(s) {
+    if (s.sn === null || s.dn === null) return { esito:null, perche:"servono sistolica e diastolica notturne" };
+    if (fuoriDominio(s.sn, "s") || fuoriDominio(s.dn, "d") || s.dn >= s.sn) return { esito:null, perche:"media notturna non valida" };
+    var ipn = s.sn > NOTT_DEF[0] || s.dn > NOTT_DEF[1];
+    var bordo = !ipn && (s.sn === NOTT_DEF[0] || s.dn === NOTT_DEF[1]);
+    var r = { ipn:ipn, bordo:bordo };
+    if (!ipn) { r.esito = "no"; return r; }
+    if (s.sd === null || s.dd === null) { r.esito = "si"; r.isolata = null; return r; }
+    r.esito = "si";
+    r.isolata = s.sd < ISOL_DIURNA[0] && s.dd < ISOL_DIURNA[1];
+    return r;
+  }
+
+  /* Profilo notte/giorno sul rapporto sistolico (p. 3980; suppl. pp. 10, 24). */
+  function arrotonda(x) { return Math.round(x * 10000) / 10000; }
+  function classeRapporto(r) {
+    if (r > DIP.riser) return "riser";
+    if (r > DIP.nondip) return "nondipper";
+    if (r >= DIP.norm) return "normale";
+    return "extreme";
+  }
+  function profilo(s) {
+    if (s.sn === null || s.sd === null) return { esito:null, perche:"servono le sistoliche diurna e notturna" };
+    if (fuoriDominio(s.sn, "s") || fuoriDominio(s.sd, "s")) return { esito:null, perche:"sistolica fuori dominio" };
+    var r = arrotonda(s.sn / s.sd), out = { esito:classeRapporto(r), r:r, calo:arrotonda((1 - r) * 100) };
+    out.bordo = (r === DIP.nondip || r === DIP.norm);
+    if (s.dn !== null && s.dd !== null && s.dd > 0) { out.rd = arrotonda(s.dn / s.dd); out.esitoD = classeRapporto(out.rd); }
+    return out;
+  }
+
+  /* ═══ STATO E DISEGNO ═════════════════════════════════════════════════ */
+  function el(id) { return document.getElementById(id); }
+  function num(id) {
+    var e = el(id); if (!e) return null;
+    var v = String(e.value).replace(",", ".").trim();
+    if (v === "") return null;
+    var n = parseFloat(v);
+    return isFinite(n) ? n : null;
+  }
+  function radio(n) { var e = document.querySelector('input[name="' + n + '"]:checked'); return e ? e.value : ""; }
+  function pgs(p) { return ' <span class="pg">' + p + "</span>"; }
+  function corPill(c, l) { var k = { "I":"c1", "IIa":"c2a", "IIb":"c2b", "III":"c3" }[c]; return '<span class="cor ' + k + '">' + c + "</span>" + (l ? ' <span class="cor ' + k + '" style="opacity:.85">' + l + "</span>" : ""); }
+  function nota(g, t) { return '<div class="nota ' + (g || "") + '">' + t + "</div>"; }
+  function chip(k, t) { return '<span class="cat ' + k + '">' + t + "</span>"; }
+  function it(x, d) { var v = d === undefined ? x : x.toFixed(d); return String(v).replace(".", ","); }
+  function pa(sis, dia) { return (sis === null ? "—" : it(sis)) + "/" + (dia === null ? "—" : it(dia)); }
+  var ESC = "ESC 2024, ";
+
+  function S() {
+    return {
+      prog:num("prog"), valide:num("valide"), pct:num("pct"), nott:num("nott"), diur:num("diur"),
+      s24:num("s24"), d24:num("d24"), sd:num("sd"), dd:num("dd"), sn:num("sn"), dn:num("dn"),
+      so:num("so"), dof:num("do"), ter:radio("ter")
+    };
+  }
+
+  var FENOTIPO = {
+    confermata:["k4", "ipertensione confermata"], noncontr:["k4", "non controllata"],
+    camice:["k2", "camice bianco"], mascherata:["k4", "ipertensione mascherata"],
+    mascheratanc:["k4", "mascherata non controllata"], nessuna:["k0", "nessuna ipertensione"],
+    controllata:["k0", "sotto soglia, in terapia"]
+  };
+  var PROFILO = { riser:["k4", "riser"], nondipper:["k3", "non-dipper"], normale:["k0", "dipper"], extreme:["k2", "extreme dipper"] };
+  var PROFILO_TX = {
+    riser:"la PA di notte sale (rapporto &gt;1,0)", nondipper:"calo notturno inferiore al 10% (rapporto &gt;0,9 e ≤1,0)",
+    normale:"calo notturno fisiologico, 10–20% (rapporto 0,8–0,9)", extreme:"calo notturno marcato, oltre il 20% (rapporto &lt;0,8)"
+  };
+
+  function disegna() {
+    var s = S(), v = validita(s), i;
+
+    /* 1 · validita' */
+    var hv = "", barV;
+    if (v.errore) { hv = '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + v.errore + "</span></div>"; barV = ["kx", "—"]; }
+    else if (v.stato === null) { hv = '<div class="esito">' + chip("kx", "—") + '<span class="muted">servono le letture programmate e valide, o la percentuale</span></div>'; barV = ["kx", "—"]; }
+    else {
+      var pctT = it(Math.floor(v.pct * 10) / 10);
+      if (v.stato === "valida") {
+        hv = '<div class="esito">' + chip("k0", "valida") + '<span class="muted">' + pctT + "% di letture utilizzabili: almeno il 70% richiesto" + pgs(ESC + "p. 3933") + "</span></div>";
+        barV = ["k0", "valida"];
+      } else {
+        hv = '<div class="esito">' + chip("k4", "non valida") + '<span class="muted">' + pctT + "% di letture utilizzabili: sotto il 70% richiesto" + pgs(ESC + "p. 3933") + "</span></div>";
+        hv += nota("stop", "<b>Registrazione non valida: le medie non si interpretano.</b> Si ripete l'ABPM. I passi 2–5 restano vuoti finché la registrazione non è valida.");
+        barV = ["k4", "non valida"];
+      }
+      if (v.avvisi.indexOf("pochi") >= 0) hv += nota("", "Sopra il 70% ma con " + s.valide + " letture valide: di solito una registrazione valida ne conta <b>almeno 27</b> nelle 24 h" + pgs(ESC + "p. 3933") + ". Le medie poggiano su poche misure.");
+    }
+    if (!v.errore && s.nott !== null) {
+      if (v.avvisi.indexOf("notte-minima") >= 0) hv += nota("stop", "<b>" + s.nott + " letture notturne</b>: sotto le 7 preferibili e anche sotto le 4 che i dati emergenti ritengono sufficienti" + pgs(ESC + "p. 3933") + ". Media notturna, ipertensione notturna e profilo del passo 4 sono poco affidabili.");
+      else if (v.avvisi.indexOf("notte-emergenti") >= 0) hv += nota("", "<b>" + s.nott + " letture notturne</b>: sotto le 7 preferibili. Secondo dati emergenti ne bastano 4 di sonno (e 8 di veglia) se non se ne ottengono di più" + pgs(ESC + "p. 3933") + ".");
+      else hv += '<div class="mini">' + s.nott + " letture notturne: almeno le 7 preferibili" + pgs(ESC + "p. 3933") + "</div>";
+    }
+    if (!v.errore && v.avvisi.indexOf("giorno-minimo") >= 0) hv += nota("", "<b>" + s.diur + " letture di veglia</b>: sotto le 8 che i dati emergenti ritengono il minimo" + pgs(ESC + "p. 3933") + ".");
+    hv += '<div class="mini">Prima di usare le medie vanno guardati i valori grezzi, per scartare letture anomale o errate; il diario dell\'attività e del sonno aiuta a leggerle' + pgs(ESC + "p. 3933") + ".</div>";
+    el("outVal").innerHTML = hv;
+
+    var bloccata = v.stato === "nonvalida" || !!v.errore;
+    var motivoBlocco = v.errore ? "correggere le letture del passo 1" : "registrazione non valida (&lt;70% di letture): ripetere l'ABPM";
+
+    /* 2 · categorie */
+    var cats = {}, hc = "";
+    for (i = 0; i < FINESTRE.length; i++) {
+      var f = FINESTRE[i];
+      cats[f.k] = categoriaMedia(f, s[f.s], s[f.d]);
+    }
+    var comp = complessiva(cats);
+    var bn = bloccata ? null : bordoNotturno(comp, cats, s);
+    var bnTesto = bn ? "<b>Attenzione, bordo della fonte:</b> l'ipertensione all'ABPM poggia solo sulla notturna " + pa(s.sn, s.dn) + ", al valore esatto della soglia. Per la Tab. 5 («≥120/70», p. 3933) è ipertensione; per la definizione del § 9.12.1 («&gt;120» e/o «&gt;70», p. 3979) no, e la categoria complessiva sarebbe " + (bn.alt === null ? "da decidere sulle altre medie" : "«" + CATNOME[bn.alt] + "»") + ". Lo strumento segue la Tab. 5 e non scioglie il dubbio: la conclusione va pesata dal medico." : "";
+    if (bloccata) {
+      hc = '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + motivoBlocco + "</span></div>";
+      comp = { cat:null, perche:motivoBlocco };
+    } else {
+      for (i = 0; i < FINESTRE.length; i++) {
+        var f2 = FINESTRE[i], c = cats[f2.k], riga = '<div class="fin"><span class="nome">' + f2.nome + '</span><span class="val">' + pa(s[f2.s], s[f2.d]) + "</span>";
+        if (c.cat === null) riga += chip("kx", "—") + '<span class="why">' + c.perche + "</span>";
+        else riga += chip(CATK[c.cat], CATNOME[c.cat]) + '<span class="why">' + (c.parziale ? c.perche : "decide la " + c.decide.join(" e la ") + " (" + soglieTesto(f2, c.cat) + ")") + pgs(ESC + f2.pg) + "</span>";
+        hc += riga + "</div>";
+      }
+      if (comp.cat !== null) {
+        hc += '<div class="esito" style="margin-top:10px"><b>Complessiva</b> ' + chip(CATK[comp.cat], CATNOME[comp.cat]) + '<span class="muted">decisa dalla media ' + comp.chi.join(", dalla ") + (comp.cat === 2 ? ": all'ABPM basta una media sopra soglia" + pgs(ESC + "Fig. 5, p. 3933") : ": la più alta delle tre") + "</span></div>";
+        if (bn) hc += nota("info", bnTesto);
+        if (comp.cat === 2 && comp.mancano.length) hc += '<div class="mini">Manca la media ' + comp.mancano.join(", ") + ": non cambia l'esito.</div>";
+      } else {
+        hc += '<div class="esito" style="margin-top:10px"><b>Complessiva</b> ' + chip("kx", "—") + '<span class="muted">' + comp.perche + "</span></div>";
+      }
+      hc += '<div class="mini">La categoria si decide con la sistolica <b>o</b> con la diastolica: basta una delle due oltre la soglia' + pgs(ESC + "Tab. 5, p. 3933; p. 3936") + ".</div>";
+    }
+    el("outCat").innerHTML = hc;
+
+    /* 3 · fenotipo */
+    var fz = bloccata ? { fen:null, perche:motivoBlocco } : fenotipo(s, comp, cats), hf = "";
+    if (fz.fen) {
+      var fe = FENOTIPO[fz.fen];
+      hf += '<div class="esito">' + chip(fe[0], fe[1]) + '<span class="muted">in ambulatorio ' + pa(s.so, s.dof) + " (" + (fz.offHT ? "≥" : "&lt;") + "140/90), all'ABPM " + (fz.abHT ? "ipertensione" : "sotto la soglia di ipertensione") + "</span></div>";
+      if (fz.fen === "camice") hf += nota("info", "PA sopra la soglia in ambulatorio e sotto fuori: <b>ipertensione da camice bianco</b> (≥140/90 in ambulatorio, &lt;135/85 di giorno o &lt;130/80 nelle 24 h)" + pgs(ESC + "p. 3930") + "." + (fz.trattato ? " In un paziente trattato l'effetto camice bianco è una delle cause di <b>pseudo-resistenza</b>" + pgs(ESC + "Tab. 11, p. 3950") + "." : ""));
+      if (fz.fen === "mascherata") hf += nota("", "PA sotto la soglia in ambulatorio e sopra fuori: <b>ipertensione mascherata</b> (&lt;140/90 in ambulatorio, ≥135/85 di giorno o ≥130/80 nelle 24 h)" + pgs(ESC + "p. 3930") + ".");
+      if (fz.fen === "mascheratanc") hf += nota("", "In terapia, controllata in ambulatorio ma non fuori: <b>ipertensione mascherata non controllata</b>. Riguarda circa il 30% dei trattati, e più spesso dipende dalla PA notturna che da quella diurna" + pgs(ESC + "p. 3980") + ".");
+      if (fz.fen === "confermata") hf += nota("", "Sopra soglia in ambulatorio e fuori: la diagnosi di ipertensione è <b>confermata dalla misura fuori ambulatorio</b>" + pgs(ESC + "Rec. Table 6, p. 3943") + ".");
+      if (fz.fen === "noncontr") hf += nota("", "In terapia, sopra soglia in ambulatorio e fuori: PA <b>non controllata</b> anche fuori dall'ambulatorio.");
+      if (fz.soloNotte && (fz.fen === "confermata" || fz.fen === "mascherata" || fz.fen === "mascheratanc" || fz.fen === "noncontr")) hf += nota("info", "<b>Nota sulla fonte:</b> qui l'ABPM è sopra soglia solo per la media <b>notturna</b>. Le definizioni di camice bianco e mascherata della p. 3930 citano come esempio solo la diurna e le 24 h: prese alla lettera darebbero " + (fz.offHT ? "camice bianco" : "nessuna ipertensione mascherata") + ". La Fig. 5 conta anche la notturna ≥120/70, e lo strumento segue la Fig. 5" + pgs(ESC + "pp. 3930, 3933") + ".");
+    } else {
+      hf += '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + fz.perche + "</span></div>";
+    }
+    if ((s.so !== null && s.so >= OFF_EMERG[0]) || (s.dof !== null && s.dof >= OFF_EMERG[1])) hf += nota("stop", "<b>PA in ambulatorio ≥180/110:</b> va esclusa un'<b>emergenza ipertensiva</b> prima di ogni altra lettura " + corPill("I", "C") + pgs(ESC + "Rec. Table 6, p. 3943") + ".");
+    if (bn && fz.fen) hf += nota("info", "Il fenotipo dipende dalla notturna al bordo esatto della soglia (vedi il passo 2): con la definizione del § 9.12.1 cambierebbe.");
+    el("outFen").innerHTML = hf;
+
+    /* 4 · la notte */
+    var hn = "", nt = bloccata ? { esito:null, perche:motivoBlocco } : notturna(s), pr = bloccata ? { esito:null, perche:motivoBlocco } : profilo(s);
+    hn += "<h3>Ipertensione notturna</h3>";
+    if (nt.esito === "si") {
+      var tn = nt.isolata === true ? "ipertensione notturna isolata" : (nt.isolata === false ? "notturna, con diurna sopra soglia" : "ipertensione notturna");
+      hn += '<div class="esito">' + chip("k4", tn) + '<span class="muted">notturna ' + pa(s.sn, s.dn) + ": oltre 120 di sistolica e/o 70 di diastolica" + pgs(ESC + "§ 9.12.1, p. 3979") + "</span></div>";
+      if (nt.isolata === true) hn += nota("", "Isolata: la diurna " + pa(s.sd, s.dd) + " è sotto 135/85" + pgs(ESC + "p. 3979") + ".");
+      if (nt.isolata === false) hn += nota("info", "La diurna " + pa(s.sd, s.dd) + " non è sotto 135/85: ipertensione di giorno e di notte, non isolata" + pgs(ESC + "p. 3979") + ".");
+      if (nt.isolata === null) hn += '<div class="mini">Per dire se è isolata serve la media diurna (isolata se &lt;135/85, p. 3979).</div>';
+    } else if (nt.esito === "no") {
+      hn += '<div class="esito">' + chip("k0", "no") + '<span class="muted">notturna ' + pa(s.sn, s.dn) + ": non oltre 120/70" + pgs(ESC + "§ 9.12.1, p. 3979") + "</span></div>";
+    } else {
+      hn += '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + nt.perche + "</span></div>";
+    }
+    if (nt.bordo) hn += nota("info", "<b>Incoerenza della fonte al bordo:</b> con " + pa(s.sn, s.dn) + " di notte la Tab. 5 dà già <b>ipertensione</b> (soglia «≥120/70», p. 3933), mentre la definizione del § 9.12.1 chiede «&gt;120» e/o «&gt;70» (p. 3979) e qui non la dà. Lo strumento mostra le due letture e non sceglie.");
+    if (!bloccata && s.nott !== null && s.nott < EM_SONNO && s.sn !== null) hn += nota("stop", "Solo " + s.nott + " letture notturne: dato poco affidabile" + pgs(ESC + "p. 3933") + ".");
+
+    hn += '<h3 style="margin-top:14px">Profilo notte/giorno</h3>';
+    if (pr.esito) {
+      var pe = PROFILO[pr.esito];
+      hn += '<div class="esito">' + chip(pe[0], pe[1]) + '<span class="big" style="font-size:24px">' + it(pr.r, 2) + "</span>" + '<span class="muted">rapporto notte/giorno della <b>sistolica</b> (' + it(s.sn) + "/" + it(s.sd) + "), " + (pr.calo < 0 ? "aumento notturno " + it(-pr.calo, 1) : "calo notturno " + it(pr.calo, 1)) + "%: " + PROFILO_TX[pr.esito] + pgs(ESC + "p. 3980; suppl. p. 24") + "</span></div>";
+      hn += '<div class="mini">Il rapporto si calcola sulla <b>sistolica</b>: il supplementare riferisce il dipping normale al calo della sistolica media del 10–20%' + pgs(ESC + "suppl. p. 10") + "; il § 9.12 non dice quale pressione." + (pr.rd !== undefined ? " Per confronto, sulla diastolica il rapporto è " + it(pr.rd, 2) + " (" + PROFILO[pr.esitoD][1] + ")." : "") + "</div>";
+      if (pr.bordo) hn += nota("info", "<b>Incoerenza della fonte al bordo:</b> col rapporto " + it(pr.r, 1) + " la definizione per rapporto mette il profilo fra i <b>dipper</b> («0,8–0,9»), mentre quella in percentuale («&gt;10% e &lt;20%», «&lt;10%», «&gt;20%») lascia il calo di esattamente il " + (pr.r === DIP.nondip ? "10" : "20") + "% fuori da ogni classe" + pgs(ESC + "p. 3980") + ". Lo strumento usa il rapporto.");
+      hn += nota("info", "La riproducibilità a lungo termine del profilo di dipping è <b>bassa</b>; e non ci sono prove sufficienti per dare di routine i farmaci antipertensivi alla sera" + pgs(ESC + "p. 3980") + ".");
+      if (pr.esito === "riser" || pr.esito === "nondipper") hn += '<div class="mini">Non-dipping e ipertensione notturna sono più frequenti nell\'ipertensione secondaria (OSAS, aldosteronismo primario), che va trattata nella causa' + pgs(ESC + "p. 3980") + ".</div>";
+    } else {
+      hn += '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + pr.perche + "</span></div>";
+    }
+    el("outNot").innerHTML = hn;
+
+    /* 5 · che cosa comporta */
+    var hw = "";
+    if (bloccata) hw = '<div class="esito">' + chip("kx", "—") + '<span class="muted">' + motivoBlocco + "</span></div>";
+    else if (comp.cat === null) hw = '<div class="esito">' + chip("kx", "—") + '<span class="muted">serve la categoria complessiva dell\'ABPM</span></div>';
+    else if (s.ter === "si") {
+      if (comp.cat === 2) {
+        hw += '<div class="esito">' + chip("k4", "non controllata fuori ambulatorio") + "</div>";
+        hw += nota("", "La misura fuori ambulatorio serve a quantificare l'effetto della terapia e a <b>guidarne la titolazione</b> " + corPill("I", "B") + pgs(ESC + "Rec. Table 1, p. 3935") + ". Prima di intensificare: aderenza e cause di pseudo-resistenza" + pgs(ESC + "Tab. 11, p. 3950") + ". Il passo successivo è nella scheda di studio: algoritmo della terapia e ipertensione resistente.");
+      } else {
+        hw += '<div class="esito">' + chip("k0", "sotto la soglia di ipertensione fuori ambulatorio") + "</div>";
+        hw += nota("info", "Il bersaglio della fonte è espresso in ambulatorio: sistolica trattata <b>120–129 mmHg</b> se tollerata " + corPill("I", "A") + pgs(ESC + "Rec. Table 18, p. 3966") + ". La fonte non dà un bersaglio all'ABPM. Una volta controllata e stabile, controllo almeno annuale " + corPill("IIa", "C") + pgs(ESC + "Rec. Table 19, p. 3966") + ".");
+      }
+    } else if (s.ter === "no" || s.ter === "") {
+      if (comp.cat === 2) {
+        hw += '<div class="esito">' + chip("k4", "ipertensione confermata fuori ambulatorio") + "</div>";
+        hw += nota("", "La diagnosi si fonda sulla misura fuori ambulatorio " + corPill("I", "B") + pgs(ESC + "Rec. Table 6, p. 3943") + ". Con ipertensione confermata, <b>stile di vita e farmaci subito</b>, qualunque sia il rischio CV " + corPill("I", "A") + pgs(ESC + "Rec. Table 17, p. 3963") + "; da considerare soltanto, e da ≥140/90, in chi ha ≥85 anni, fragilità moderata-severa, ipotensione ortostatica sintomatica o vita attesa limitata " + corPill("IIa", "B") + pgs(ESC + "p. 3963") + ".");
+      } else if (comp.cat === 1) {
+        hw += '<div class="esito">' + chip("k2", "PA elevata: decide il rischio") + "</div>";
+        hw += nota("", "Con PA elevata la terapia dipende dal <b>rischio cardiovascolare</b>: stile di vita se il rischio a 10 anni è &lt;10% " + corPill("I", "B") + "; farmaco dopo 3 mesi di stile di vita se il rischio è sufficientemente alto e la PA confermata è ≥130/80 " + corPill("I", "A") + pgs(ESC + "Rec. Table 17, p. 3963") + ". Se non raggiunge le soglie di rischio: nuova misura e nuova stima del rischio entro un anno " + corPill("IIa", "C") + pgs(ESC + "Rec. Table 5, p. 3943") + ".");
+        hw += '<div class="mini">La soglia ≥130/80 della riga I A è quella dell\'ambulatorio: la fonte non ne dà l\'equivalente all\'ABPM. Il rischio (SCORE2) non si calcola qui.</div>';
+      } else {
+        hw += '<div class="esito">' + chip("k0", "PA non elevata") + "</div>";
+        hw += nota("ok", "Nessuna indicazione ai farmaci. Screening opportunistico almeno ogni anno da 40 anni, almeno ogni 3 anni sotto i 40 " + corPill("IIa", "C") + pgs(ESC + "Rec. Table 5, p. 3943") + ".");
+      }
+      if (fz.fen === "camice") hw += '<div class="mini">Camice bianco: la categoria da portare alla decisione è quella <b>fuori ambulatorio</b>, su cui si fonda la diagnosi' + pgs(ESC + "Rec. Table 6, p. 3943") + ".</div>";
+      if (s.ter === "") hw += '<div class="mini">Letto come paziente <b>non in terapia</b>: se lo è, indicarlo al passo 3.</div>';
+    }
+    if (bn && comp.cat !== null) hw = nota("stop", "Questa conclusione poggia sulla sola notturna al bordo esatto della soglia, dove Tab. 5 e § 9.12.1 divergono: con la definizione del § 9.12.1 la categoria sarebbe " + (bn.alt === null ? "da decidere sulle altre medie" : "«" + CATNOME[bn.alt] + "»") + " e la conclusione cambierebbe" + pgs(ESC + "pp. 3933, 3979") + ".") + hw;
+    el("outCosa").innerHTML = hw;
+
+    /* limiti */
+    var lim = [];
+    lim.push("La categoria complessiva è la più alta delle tre medie: per l'ipertensione lo dice la Fig. 5 (basta una media), per «elevata» e «non elevata» è una lettura dello strumento.");
+    lim.push("Le <b>soglie notturne</b> della Tab. 5 usano «≥120/70», la definizione di ipertensione notturna del § 9.12.1 «&gt;120/&gt;70»: al valore esatto le due letture divergono, e lo strumento lo mostra.");
+    lim.push("Il <b>profilo di dipping</b> è calcolato sulla sistolica; la sua riproducibilità è bassa (p. 3980).");
+    lim.push("Gli apparecchi oscillometrici in genere non sono validati nella <b>fibrillazione atriale</b> (p. 3930): lì le medie dell'ABPM vanno lette con cautela.");
+    lim.push("Lo strumento non stima il rischio cardiovascolare né decide la terapia: rimanda alla scheda di studio.");
+    el("limiti").innerHTML = "<li>" + lim.join("</li><li>") + "</li>";
+
+    function bar(id, k, t) { var b = el(id); b.className = "cat " + k; b.innerHTML = t; }
+    bar("barVal", barV[0], barV[1]);
+    bar("barCat", comp.cat === null ? "kx" : CATK[comp.cat], comp.cat === null ? "—" : CATNOME[comp.cat]);
+    bar("barFen", fz.fen ? FENOTIPO[fz.fen][0] : "kx", fz.fen ? FENOTIPO[fz.fen][1] : "—");
+    bar("barNot", pr.esito ? PROFILO[pr.esito][0] : "kx", pr.esito ? PROFILO[pr.esito][1] : "—");
+  }
+
+  document.addEventListener("input", disegna);
+  document.addEventListener("change", disegna);
+  el("azzera").addEventListener("click", function () {
+    var ins = document.querySelectorAll("input");
+    for (var i = 0; i < ins.length; i++) {
+      if (ins[i].type === "checkbox" || ins[i].type === "radio") ins[i].checked = false;
+      else ins[i].value = "";
+    }
+    disegna();
+    window.scrollTo(0, 0);
+  });
+
+  window.ABPM_MOTORE = { validita:validita, categoriaMedia:categoriaMedia, complessiva:complessiva, fenotipo:fenotipo, notturna:notturna, profilo:profilo, bordoNotturno:bordoNotturno };
+  disegna();
+})();
+</script>
+<script data-iphone="web">
+// Solo da un indirizzo https, cioe' dalla pagina pubblicata: aperto come file
+// il tool non cerca ne' manifest ne' service worker, che accanto al file non
+// ci sono. Un errore qui non deve fermare niente: e' un di piu'.
+(function(){
+if(location.protocol!=="https:") return;
+try{
+  var t=document.getElementsByTagName("head")[0];
+  var m=document.createElement("link"); m.rel="manifest"; m.href="manifest.webmanifest";
+  var i=document.createElement("link"); i.rel="apple-touch-icon"; i.href="icona-180.png";
+  t.appendChild(m); t.appendChild(i);
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js")["catch"](function(){});
+}catch(e){}
+})();
+</script>
+<script data-iphone="fine">document.documentElement.className+=" motore-ok";</script>
+</body>
+</html>
