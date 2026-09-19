@@ -169,6 +169,11 @@ document.addEventListener("DOMContentLoaded",function(){
   .coppia { display:inline-flex; align-items:center; gap:6px; }
   .coppia .sl { font-family:var(--mono); color:var(--text-muted); }
   @media (max-width:360px) { input[type=number] { width:92px; } input[type=number].corto { width:74px; } }
+  /* referto da copiare */
+  .referto { white-space:pre-wrap; overflow-wrap:anywhere; font:14px/1.6 var(--font); color:var(--text-primary);
+             background:var(--surface-alt); border:1px solid var(--border-strong); border-radius:10px; padding:12px 14px; margin-top:8px; }
+  .referto-azioni { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; }
+  .referto-azioni .fatto { font-size:12.5px; color:var(--text-muted); }
 </style>
 <style data-iphone="stile">
 /* L'avviso e' visibile per costruzione: lo nasconde solo la classe che la
@@ -288,6 +293,28 @@ html.js.motore-ko #nomotore{display:block}
 
 <div class="stage"><span class="stage-n">5</span><span class="stage-t">Che cosa comporta</span><span class="stage-w">Rec. Table 6 p. 3943 · Rec. Table 17 p. 3963</span></div>
 <div class="card" id="outCosa"></div>
+
+<div class="stage"><span class="stage-n">6</span><span class="stage-t">Il referto</span><span class="stage-w">dai passi 1–5</span></div>
+<div class="card">
+  <div class="row">
+    <span class="fl">Carico pressorio <small>% di letture oltre soglia, come lo dà l'apparecchio — facoltativo</small></span>
+  </div>
+  <div class="row">
+    <span class="fl">24 ore <small>%</small></span>
+    <input type="number" class="corto" id="car24" min="0" max="100" step="1" inputmode="decimal" placeholder="%">
+    <span class="fl">Giorno <small>%</small></span>
+    <input type="number" class="corto" id="card" min="0" max="100" step="1" inputmode="decimal" placeholder="%">
+    <span class="fl">Notte <small>%</small></span>
+    <input type="number" class="corto" id="carn" min="0" max="100" step="1" inputmode="decimal" placeholder="%">
+  </div>
+  <div class="mini">La linea guida ESC 2024 non definisce il carico pressorio né una sua soglia: se lo inserisci, il referto lo riporta come numero, senza giudicarlo «alto» o «basso».</div>
+  <div class="referto" id="referto" aria-live="polite"></div>
+  <div class="referto-azioni">
+    <button class="btn" id="copia" type="button">Copia il referto</button>
+    <span class="fatto" id="copiato"></span>
+  </div>
+  <div class="mini">Testo proposto dallo strumento, da rileggere e firmare: la classificazione segue le categorie ESC 2024 (non elevata · elevata · ipertensione), che non distinguono «gradi» di ipertensione.</div>
+</div>
 <div class="card"><h3>Limiti</h3><ul class="limiti" id="limiti"></ul></div>
 
 <div class="foot">
@@ -474,6 +501,112 @@ html.js.motore-ko #nomotore{display:block}
     return out;
   }
 
+  /* ═══ REFERTO ══════════════════════════════════════════════════════════
+     Testo semplice da copiare in cartella, composto SOLO dagli esiti dei
+     passi 1-5 (stesse soglie, stesse fonti). Niente pagine dentro: il referto
+     esce dallo strumento. Due scelte dichiarate nel tool:
+     - il «carico pressorio» non e' definito dalla ESC 2024: si riporta il
+       numero dato dall'apparecchio, senza giudizio;
+     - la ESC 2024 classifica in tre categorie (non elevata, elevata,
+       ipertensione) e non per gradi: il referto usa le categorie. */
+  var CAT_VALORI = ["non elevati", "elevati", "nella fascia dell'ipertensione"];
+  var PROF_REF = {
+    normale:"dipper", nondipper:"non-dipper", riser:"riser (reverse dipper)", extreme:"extreme dipper"
+  };
+
+  function referto(s, v, comp, cats, fz, nt, pr, bn) {
+    var L = [], i;
+    if (v.errore) return ["Referto non componibile: " + v.errore + "."];
+    if (v.stato === null) return ["Referto non componibile: servono le letture programmate e valide, o la percentuale di letture valide."];
+    var pctT = it(Math.floor(v.pct * 10) / 10) + "%";
+    var conta = (s.prog !== null && s.valide !== null) ? " (" + s.valide + " su " + s.prog + ")" : "";
+    if (v.stato === "nonvalida") {
+      L.push("Monitoraggio ambulatorio della pressione arteriosa (ABPM) delle 24 ore.");
+      L.push("Registrazione non valida: " + pctT + " di letture utilizzabili" + conta + ", sotto il 70% richiesto. Le medie non sono interpretabili: si consiglia di ripetere l'esame.");
+      return L;
+    }
+    L.push("Monitoraggio ambulatorio della pressione arteriosa (ABPM) delle 24 ore" + (s.ter === "si" ? ", in corso di terapia antipertensiva." : "."));
+
+    // 1 · qualita' della registrazione
+    var q = "Registrazione valida: " + pctT + " di letture utilizzabili" + conta;
+    if (s.valide !== null && s.valide < VAL_N) q += ", ma con meno delle 27 letture di solito attese";
+    if (s.nott !== null) {
+      q += "; " + s.nott + " letture notturne";
+      if (s.nott < EM_SONNO) q += ", troppo poche: dati notturni poco affidabili";
+      else if (s.nott < NOTT_PREF) q += ", meno delle 7 raccomandate";
+    }
+    L.push(q + ".");
+
+    // 2 · valori medi
+    var parti = [], nomiRef = { h24:"nelle 24 ore", day:"diurni", night:"notturni" };
+    for (i = 0; i < FINESTRE.length; i++) {
+      var f = FINESTRE[i], c = cats[f.k];
+      if (s[f.s] === null && s[f.d] === null) continue;
+      parti.push(nomiRef[f.k] + " " + pa(s[f.s], s[f.d]) + " mmHg" + (c.cat === null || c.cat === undefined ? "" : " (" + CAT_VALORI[c.cat] + ")"));
+    }
+    if (parti.length) L.push("Valori pressori medi " + parti.join("; ") + ".");
+
+    // 3 · carico pressorio, se dato
+    var car = [], nomiCar = [["car24", "24 ore"], ["card", "diurno"], ["carn", "notturno"]];
+    for (i = 0; i < nomiCar.length; i++) {
+      var x = s[nomiCar[i][0]];
+      if (x !== null && x >= 0 && x <= 100) car.push(nomiCar[i][1] + " " + it(x) + "%");
+    }
+    if (car.length) L.push("Carico pressorio (letture oltre soglia, secondo l'apparecchio): " + car.join(", ") + ".");
+
+    // 4 · la notte
+    if (pr.esito) {
+      var p = "Profilo notte/giorno: " + PROF_REF[pr.esito] + "; sistolica notturna " +
+        (pr.calo < 0 ? "+" + it(-pr.calo, 1) : "−" + it(pr.calo, 1)) + "% rispetto alla diurna (rapporto " + it(pr.r, 2) + ")";
+      if (s.nott !== null && s.nott < EM_SONNO) p += ", poco affidabile per le poche letture notturne";
+      L.push(p + ".");
+    }
+    if (nt.esito === "si") L.push(nt.isolata === true ? "Ipertensione notturna isolata (valori notturni oltre 120/70 mmHg con valori diurni sotto 135/85 mmHg)." : "Ipertensione notturna (valori notturni oltre 120/70 mmHg).");
+
+    // 5 · confronto con l'ambulatorio
+    if (fz.fen) {
+      var amb = "PA in ambulatorio " + pa(s.so, s.dof) + " mmHg: ";
+      var FEN_REF = {
+        confermata:"ipertensione confermata dalla misura fuori ambulatorio.",
+        noncontr:"valori oltre soglia sia in ambulatorio sia all'ABPM.",
+        camice:"ipertensione da camice bianco (valori oltre soglia solo in ambulatorio).",
+        mascherata:"ipertensione mascherata (valori sotto soglia in ambulatorio, oltre soglia all'ABPM).",
+        mascheratanc:"ipertensione mascherata non controllata (controllata in ambulatorio, non all'ABPM).",
+        nessuna:"valori sotto soglia sia in ambulatorio sia all'ABPM.",
+        controllata:"valori sotto soglia sia in ambulatorio sia all'ABPM."
+      };
+      L.push(amb + FEN_REF[fz.fen]);
+    }
+    if ((s.so !== null && s.so >= OFF_EMERG[0]) || (s.dof !== null && s.dof >= OFF_EMERG[1])) L.push("PA in ambulatorio ≥180/110 mmHg: va esclusa un'emergenza ipertensiva.");
+
+    // 6 · conclusioni
+    var C;
+    function medie(chi) {
+      var n = { "24 ore":"delle 24 ore", "diurna":"diurna", "notturna":"notturna" }, a = [], k;
+      for (k = 0; k < chi.length; k++) a.push(n[chi[k]] || chi[k]);
+      if (a.length === 1) return "media " + a[0];
+      return "medie " + a.slice(0, -1).join(", ") + " e " + a[a.length - 1];
+    }
+    var profiloSfav = pr.esito === "riser" || pr.esito === "nondipper";
+    if (comp.cat === null) C = "Conclusioni: categoria non determinabile (" + comp.perche.replace(/&lt;/g, "<") + ").";
+    else if (s.ter === "si") {
+      if (comp.cat === 2) C = "Conclusioni: in corso di terapia, valori medi nella fascia dell'ipertensione (" + medie(comp.chi) + "): controllo pressorio non adeguato. Si consiglia di verificare l'aderenza e di ottimizzare la terapia antipertensiva.";
+      else if (comp.cat === 1) C = "Conclusioni: in corso di terapia, valori medi nella fascia «elevata», sotto la soglia dell'ipertensione. Bersaglio raccomandato: sistolica in ambulatorio 120–129 mmHg, se tollerata; se non è raggiunto e la terapia è ben tollerata, valutarne l'intensificazione.";
+      else C = "Conclusioni: in corso di terapia, valori medi non elevati: buon controllo pressorio. Si consiglia di proseguire la terapia in atto, con controllo almeno annuale.";
+    } else {
+      if (comp.cat === 2) C = "Conclusioni: ipertensione arteriosa sistemica confermata all'ABPM (" + medie(comp.chi) + " oltre soglia). Si consiglia l'avvio della terapia antipertensiva insieme alle misure non farmacologiche, con valutazione del danno d'organo e del rischio cardiovascolare (dopo gli 85 anni, nella fragilità moderata-severa, nell'ipotensione ortostatica sintomatica o con aspettativa di vita limitata, terapia da valutare caso per caso).";
+      else if (comp.cat === 1) C = "Conclusioni: pressione arteriosa elevata. Si consigliano le misure non farmacologiche e la stima del rischio cardiovascolare a 10 anni: se il rischio è sufficientemente alto (SCORE2 ≥10% o condizioni ad alto rischio) e dopo 3 mesi la PA confermata resta ≥130/80 mmHg, terapia farmacologica; altrimenti nuova misura e nuova stima del rischio entro un anno.";
+      else C = "Conclusioni: valori pressori medi non elevati. Nessuna indicazione a terapia antipertensiva farmacologica.";
+      if (fz.fen === "camice") C += " L'ipertensione misurata in ambulatorio non è confermata fuori ambulatorio (camice bianco): la decisione si basa sui valori dell'ABPM, con controlli periodici fuori ambulatorio.";
+    }
+    if (comp.cat !== null && profiloSfav) C += " Il profilo notturno " + PROF_REF[pr.esito] + " è più frequente nelle forme secondarie (es. apnee ostruttive del sonno, aldosteronismo primario), da considerare nel quadro clinico.";
+    if (bn && comp.cat !== null) C += " Nota: l'ipertensione all'ABPM poggia sulla sola media notturna al valore soglia di 120/70 mmHg, dove le definizioni della linea guida divergono: da pesare clinicamente.";
+    L.push(C);
+
+    L.push("Criteri: linee guida ESC 2024 sulla pressione arteriosa elevata e l'ipertensione — soglie di ipertensione all'ABPM ≥130/80 mmHg nelle 24 ore, ≥135/85 di giorno, ≥120/70 di notte; PA elevata da 115/65, 120/70 e 110/60 mmHg.");
+    return L;
+  }
+
   /* ═══ STATO E DISEGNO ═════════════════════════════════════════════════ */
   function el(id) { return document.getElementById(id); }
   function num(id) {
@@ -496,7 +629,8 @@ html.js.motore-ko #nomotore{display:block}
     return {
       prog:num("prog"), valide:num("valide"), pct:num("pct"), nott:num("nott"), diur:num("diur"),
       s24:num("s24"), d24:num("d24"), sd:num("sd"), dd:num("dd"), sn:num("sn"), dn:num("dn"),
-      so:num("so"), dof:num("do"), ter:radio("ter")
+      so:num("so"), dof:num("do"), ter:radio("ter"),
+      car24:num("car24"), card:num("card"), carn:num("carn")
     };
   }
 
@@ -651,6 +785,10 @@ html.js.motore-ko #nomotore{display:block}
     if (bn && comp.cat !== null) hw = nota("stop", "Questa conclusione poggia sulla sola notturna al bordo esatto della soglia, dove Tab. 5 e § 9.12.1 divergono: con la definizione del § 9.12.1 la categoria sarebbe " + (bn.alt === null ? "da decidere sulle altre medie" : "«" + CATNOME[bn.alt] + "»") + " e la conclusione cambierebbe" + pgs(ESC + "pp. 3933, 3979") + ".") + hw;
     el("outCosa").innerHTML = hw;
 
+    /* 6 · referto */
+    el("referto").textContent = referto(s, v, comp, cats, fz, nt, pr, bn).join("\n");
+    el("copiato").textContent = "";
+
     /* limiti */
     var lim = [];
     lim.push("La categoria complessiva è la più alta delle tre medie: per l'ipertensione lo dice la Fig. 5 (basta una media), per «elevata» e «non elevata» è una lettura dello strumento.");
@@ -669,6 +807,22 @@ html.js.motore-ko #nomotore{display:block}
 
   document.addEventListener("input", disegna);
   document.addEventListener("change", disegna);
+  el("copia").addEventListener("click", function () {
+    var t = el("referto").textContent, fatto = el("copiato");
+    function ripiego() {
+      var ta = document.createElement("textarea");
+      ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { ta.setSelectionRange(0, t.length); } catch (e) {}
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      fatto.textContent = ok ? "Copiato." : "Copia non riuscita: seleziona il testo e copialo a mano.";
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { fatto.textContent = "Copiato."; }, ripiego);
+    } else ripiego();
+  });
   el("azzera").addEventListener("click", function () {
     var ins = document.querySelectorAll("input");
     for (var i = 0; i < ins.length; i++) {
@@ -679,7 +833,7 @@ html.js.motore-ko #nomotore{display:block}
     window.scrollTo(0, 0);
   });
 
-  window.ABPM_MOTORE = { validita:validita, categoriaMedia:categoriaMedia, complessiva:complessiva, fenotipo:fenotipo, notturna:notturna, profilo:profilo, bordoNotturno:bordoNotturno };
+  window.ABPM_MOTORE = { referto:referto, validita:validita, categoriaMedia:categoriaMedia, complessiva:complessiva, fenotipo:fenotipo, notturna:notturna, profilo:profilo, bordoNotturno:bordoNotturno };
   disegna();
 })();
 </script>
